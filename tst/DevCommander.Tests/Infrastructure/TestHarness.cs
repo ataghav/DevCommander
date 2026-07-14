@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 
 namespace DevCommander.Tests.Infrastructure;
 
@@ -162,7 +163,7 @@ public sealed class RecordingTelegramMessenger : ITelegramMessenger
     public List<(long ChatId, string Text)> Sends { get; } = [];
     public void Configure() { }
     public void Configure(ITelegramBotClient botClient) { }
-    public Task SendTextAsync(long chatId, string text, CancellationToken ct)
+    public Task SendTextAsync(long chatId, string text, CancellationToken ct, ParseMode? parseMode = null)
     {
         Sends.Add((chatId, text));
         return Task.CompletedTask;

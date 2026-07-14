@@ -4,6 +4,7 @@ using DevCommander.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NovaCore.Agents;
+using Telegram.Bot.Types.Enums;
 
 namespace DevCommander.Integrations.Telegram;
 
@@ -32,6 +33,15 @@ public sealed class CommanderDispatcher(
             return;
         }
 
+        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var command = parts.FirstOrDefault()?.ToLowerInvariant();
+        if (command == "/costs" && parts.Length == 1)
+        {
+            // HTML formatting per https://core.telegram.org/bots/api#formatting-options
+            await messenger.SendTextAsync(chatId, await commands.AgentCostsAsync(ct), ct, ParseMode.Html);
+            return;
+        }
+
         var response = await DispatchAllowedAsync(chatId, text, ct);
         if (!string.IsNullOrWhiteSpace(response))
         {
@@ -46,7 +56,6 @@ public sealed class CommanderDispatcher(
         return command switch
         {
             "/missions" when parts.Length == 1 => await commands.ListMissionsAsync(chatId, ct),
-            "/costs" when parts.Length == 1 => await commands.AgentCostsAsync(ct),
             "/start" when parts.Length == 2 => await commands.StartAsync(parts[1], chatId, ct),
             "/status" when parts.Length == 2 => await commands.StatusAsync(parts[1], chatId, ct),
             "/approve" when parts.Length == 2 && Guid.TryParse(parts[1], out var approvalId)

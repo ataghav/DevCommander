@@ -32,6 +32,7 @@ public static class AgentRegistration
             Loop = LoopPolicy.SingleResponse
         }));
         services.AddSingleton<ICommanderCapability, RegisterRepositoryTool>();
+        services.AddSingleton<ICommanderCapability, ListRepositoriesTool>();
         return services;
     }
 

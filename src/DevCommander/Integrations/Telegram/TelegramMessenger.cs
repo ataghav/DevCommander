@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using DevCommander.Options;
 using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 
 namespace DevCommander.Integrations.Telegram;
 
@@ -30,7 +31,7 @@ public sealed class TelegramMessenger(
     public void Configure(ITelegramBotClient botClient) =>
         _client = botClient ?? throw new ArgumentNullException(nameof(botClient));
 
-    public async Task SendTextAsync(long chatId, string text, CancellationToken ct)
+    public async Task SendTextAsync(long chatId, string text, CancellationToken ct, ParseMode? parseMode = null)
     {
         if (!_options.Enabled)
         {
@@ -40,7 +41,14 @@ public sealed class TelegramMessenger(
         Configure();
         foreach (var chunk in SplitText(text))
         {
-            await _client!.SendMessage(chatId, chunk, cancellationToken: ct);
+            if (parseMode is { } mode)
+            {
+                await _client!.SendMessage(chatId, chunk, parseMode: mode, cancellationToken: ct);
+            }
+            else
+            {
+                await _client!.SendMessage(chatId, chunk, cancellationToken: ct);
+            }
         }
     }
 

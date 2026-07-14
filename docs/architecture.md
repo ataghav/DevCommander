@@ -264,7 +264,7 @@ Adapter-specific invocation (prompt as CLI argument / stdin per runtime): Claude
 
 | Agent | Instructions constant |
 |---|---|
-| commander | `"You are DevCommander. Coordinate missions and repositories using capabilities. Never edit repository files."` |
+| commander | Concise supervisor: use capabilities for facts, never invent repos/state, prefer slash commands when appropriate |
 | planner | `"Produce a complete, valid MissionPlan only. Every listed repository needs at least one task."` |
 | critic | `"Review only the supplied current-task diff. Return an approval verdict with concrete blocking findings."` |
 
@@ -292,16 +292,23 @@ Two related systems:
 
 ### `/costs` breakdown
 
-Deterministic Telegram command (no agent call). Example shape:
+Deterministic Telegram command (no agent call). Sent with **HTML** parse mode
+([Bot API formatting options](https://core.telegram.org/bots/api#formatting-options)): bold section headers,
+`<code>` money amounts, and a monospace totals block. Example (as rendered):
 
 ```text
-commander: runs=3 $0.001234 llm=$0.001234 in=… out=… (exact)
-planner: runs=1 $0.002000 … (exact)
-critic: runs=2 $0.001500 … (exact)
-coder:Claude: runs=4 $2.000000 (best-effort)
-host LLM (commander/planner/critic): $0.004734
-coding agents: $2.000000 (best-effort where unmetered)
-total: $2.004734
+LLM costs
+
+Host agents  exact
+• commander — 2 runs · $0.002512
+  140 in · 107 out
+
+Coding agents  best-effort when unmetered
+• none yet
+
+Host LLM   $0.002512
+Coding           $0
+Total      $0.002512
 ```
 
 Grand total = host LLM exact + coding ledger lines. Mission budget (`AccountedCostUsd`) is **not** increased by commander/planner/critic rows today; it still only tracks coder reservations for gating.

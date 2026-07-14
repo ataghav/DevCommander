@@ -213,7 +213,7 @@ Runtime selection: repo-specific mission override → mission default → `Repo.
 | Command | Behavior |
 |---|---|
 | `/missions` | List missions from SQLite |
-| `/costs` | Full LLM cost breakdown: host agents (exact) + coding CLIs (best-effort) + total |
+| `/costs` | HTML-formatted LLM cost breakdown (host exact + coding best-effort + total) |
 | `/start {missionSlug}` | Validate, snapshot, plan, persist graph, start |
 | `/status {missionSlug}` | DB status only (no agent) |
 | `/approve {approvalId}` | Single-use gated-command approval |

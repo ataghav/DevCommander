@@ -1,0 +1,66 @@
+using Microsoft.Extensions.Options;
+using DevCommander.Options;
+using Telegram.Bot;
+
+namespace DevCommander.Integrations.Telegram;
+
+public sealed class TelegramMessenger(
+    IOptions<TelegramOptions> options,
+    ILogger<TelegramMessenger> _) : ITelegramMessenger
+{
+    private const int MaxMessageLength = 4_000;
+    private readonly TelegramOptions _options = options.Value;
+    private ITelegramBotClient? _client;
+
+    public void Configure()
+    {
+        if (!_options.Enabled)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.BotToken))
+        {
+            throw new InvalidOperationException("Telegram is enabled but BotToken is not configured.");
+        }
+
+        _client ??= new TelegramBotClient(_options.BotToken);
+    }
+
+    public void Configure(ITelegramBotClient botClient) =>
+        _client = botClient ?? throw new ArgumentNullException(nameof(botClient));
+
+    public async Task SendTextAsync(long chatId, string text, CancellationToken ct)
+    {
+        if (!_options.Enabled)
+        {
+            throw new InvalidOperationException("Telegram is disabled.");
+        }
+
+        Configure();
+        foreach (var chunk in SplitText(text))
+        {
+            await _client!.SendMessage(chatId, chunk, cancellationToken: ct);
+        }
+    }
+
+    private static IEnumerable<string> SplitText(string text)
+    {
+        text = string.IsNullOrEmpty(text) ? " " : text;
+        for (var offset = 0; offset < text.Length;)
+        {
+            var length = Math.Min(MaxMessageLength, text.Length - offset);
+            if (length < text.Length - offset)
+            {
+                var lineBreak = text.LastIndexOf('\n', offset + length - 1, length);
+                if (lineBreak >= offset)
+                {
+                    length = lineBreak - offset + 1;
+                }
+            }
+
+            yield return text.Substring(offset, length);
+            offset += length;
+        }
+    }
+}

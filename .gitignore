@@ -1,0 +1,40 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+## Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+## Data / secrets
+**/appsettings.*.local.json
+.env
+.env.*
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+## IDE
+.idea/
+*.swp
+*~
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Build artifacts
+publish/
+artifacts/
+
+.codex-review-context.md

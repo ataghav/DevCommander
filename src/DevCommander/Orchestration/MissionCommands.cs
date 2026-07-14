@@ -15,10 +15,12 @@ public sealed class MissionCommands(
     public async Task<string> ListMissionsAsync(long chatId, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var missions = await db.Missions.AsNoTracking()
+        // SQLite cannot OrderBy DateTimeOffset; order in-memory.
+        var missions = (await db.Missions.AsNoTracking()
+                .Select(x => new { x.Slug, x.Status, x.CreatedAt })
+                .ToListAsync(ct))
             .OrderByDescending(x => x.CreatedAt)
-            .Select(x => new { x.Slug, x.Status })
-            .ToListAsync(ct);
+            .ToList();
         return missions.Count == 0
             ? "No missions."
             : string.Join('\n', missions.Select(x => $"{x.Slug}: {x.Status}"));

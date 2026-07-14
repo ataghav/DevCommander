@@ -86,10 +86,12 @@ public sealed class ApprovalService(
     public async Task<ApprovalRequest?> FindAsync(Guid squadId, ApprovalState state, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        return await db.ApprovalRequests.AsNoTracking()
-            .Where(x => x.SquadId == squadId && x.State == state)
+        // SQLite cannot OrderBy DateTimeOffset; order in-memory.
+        return (await db.ApprovalRequests.AsNoTracking()
+                .Where(x => x.SquadId == squadId && x.State == state)
+                .ToListAsync(ct))
             .OrderByDescending(x => x.RequestedAt)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefault();
     }
 
     public async Task<bool> ApproveAsync(Guid approvalId, long chatId, CancellationToken ct)

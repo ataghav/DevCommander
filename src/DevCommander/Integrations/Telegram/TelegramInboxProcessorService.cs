@@ -20,7 +20,7 @@ public sealed class TelegramInboxProcessorService(
             var update = await TryClaimNextAsync(stoppingToken);
             if (update is null)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
                 continue;
             }
 
@@ -45,13 +45,17 @@ public sealed class TelegramInboxProcessorService(
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = time.GetUtcNow();
-        var candidates = await db.TelegramUpdates
+        // SQLite cannot translate DateTimeOffset comparisons; filter lease expiry in-memory.
+        var candidates = (await db.TelegramUpdates
+                .Where(x => x.State == TelegramUpdateState.Pending
+                         || x.State == TelegramUpdateState.Processing)
+                .OrderBy(x => x.ChatId)
+                .ThenBy(x => x.UpdateId)
+                .Take(100)
+                .ToListAsync(ct))
             .Where(x => x.State == TelegramUpdateState.Pending
                      || (x.State == TelegramUpdateState.Processing && x.LeaseUntil < now))
-            .OrderBy(x => x.ChatId)
-            .ThenBy(x => x.UpdateId)
-            .Take(100)
-            .ToListAsync(ct);
+            .ToList();
 
         foreach (var candidate in candidates)
         {

@@ -1,0 +1,31 @@
+# Quick local/prod-style run. Secrets come from a gitignored `.env`
+# (copy from `.env.example`). Compose never bakes secrets into the image.
+#
+#   cp .env.example .env   # fill secrets
+#   docker compose up --build -d
+#   curl -fsS http://127.0.0.1:8080/health
+#
+# Host must allow unprivileged user namespaces for bubblewrap
+# (e.g. sysctl kernel.unprivileged_userns_clone=1 on Linux).
+
+services:
+  devcommander:
+    build: .
+    image: devcommander:local
+    ports:
+      - "${DEVCOMMANDER_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      DevCommander__DataRoot: /data
+    volumes:
+      # Persistent SQLite, missions, clones, worktrees, runtime-state
+      - ./data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3

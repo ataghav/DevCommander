@@ -4,6 +4,8 @@ Personal autonomous-coding control plane. One human coordinates multi-repository
 
 **Stack:** .NET 10 · NovaCore.Agents 3.1.7 · EF Core SQLite · Telegram.Bot · Linux Docker + bubblewrap
 
+Architecture (processes, workflow, modules, coder prompt): [docs/architecture.md](docs/architecture.md).
+
 ## System requirements
 
 | Environment | Requirement |
@@ -43,11 +45,34 @@ dotnet run --project src/DevCommander
 
 On Windows/macOS, the Linux bubblewrap sandbox probe fails closed: coding runtimes stay **unavailable** until you run under Linux/Docker. Host orchestration, Telegram, DB, and planner/critic LLM calls still start.
 
-### Docker (production)
+### Docker Compose (recommended)
+
+Secrets live in a **gitignored** `.env`; the compose file and `.env.example` are committed.
 
 ```bash
-# Host: enable unprivileged user namespaces for bubblewrap first.
+# Host: enable unprivileged user namespaces for bubblewrap first
+# (e.g. sysctl kernel.unprivileged_userns_clone=1).
 
+cp .env.example .env          # fill API keys + Telegram token / chat id
+docker compose up --build -d
+curl -fsS http://127.0.0.1:8080/health
+
+# Mission files and SQLite persist on the host under ./data
+mkdir -p data/missions
+# edit data/missions/{slug}.md then /start {slug} in Telegram
+```
+
+| File | Committed? | Role |
+|---|---|---|
+| `docker-compose.yml` | yes | Build, port, `./data` volume, loads `.env` |
+| `.env.example` | yes | Template of required env vars (no secrets) |
+| `.env` | **no** (gitignored) | Your real API keys / bot token |
+
+Compose injects `.env` into the container via `env_file`. Variable names must match `ApiKeyEnvVar` / ASP.NET `__` overrides (see `.env.example`).
+
+### Docker (manual `docker run`)
+
+```bash
 docker build -t devcommander:latest .
 docker run --rm -p 8080:8080 \
   -e DevCommander__DataRoot=/data \

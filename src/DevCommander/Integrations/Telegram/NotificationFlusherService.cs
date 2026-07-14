@@ -20,7 +20,7 @@ public sealed class NotificationFlusherService(
             var notification = await TryClaimNextAsync(stoppingToken);
             if (notification is null)
             {
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
                 continue;
             }
 
@@ -45,11 +45,14 @@ public sealed class NotificationFlusherService(
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var now = time.GetUtcNow();
-        var notification = await db.Notifications
+        // SQLite cannot translate DateTimeOffset comparisons/ordering; finish filter in-memory.
+        var notification = (await db.Notifications
+                .Where(x => x.State == NotificationState.Pending || x.State == NotificationState.Sending)
+                .ToListAsync(ct))
             .Where(x => (x.State == NotificationState.Pending && x.NextAttemptAt <= now)
                      || (x.State == NotificationState.Sending && x.LeaseUntil < now))
             .OrderBy(x => x.NextAttemptAt)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefault();
         if (notification is null)
         {
             return null;

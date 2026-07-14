@@ -21,6 +21,7 @@ public sealed class SquadLoop(
     IGitWorkspaceService git,
     IRuntimeRegistry runtimes,
     ICostAccountingService costs,
+    IAgentCostTracker agentCosts,
     ICriticService critic,
     IVerifierService verifier,
     IApprovalService approvals,
@@ -120,7 +121,10 @@ public sealed class SquadLoop(
                 await costs.GetRemainingBudgetAsync(missionId, ct));
             var adapter = runtimes.Get(state.Squad.Runtime);
             var result = await RunCoderAsync(adapter, state.Squad, request, ct);
+            var coderCharge = result.CostUsd ?? estimate;
+            var coderEstimated = result.CostUsd is null || result.CostIsEstimated;
             await costs.ReconcileAsync(missionId, result.CostUsd, estimate, result.CostIsEstimated, ct);
+            await agentCosts.RecordCoderAsync(state.Squad.Runtime, missionId, coderCharge, coderEstimated, ct);
 
             if (result.FailureKind == FailureKind.Cancelled)
             {
@@ -153,7 +157,7 @@ public sealed class SquadLoop(
                 continue;
             }
 
-            var verdict = await critic.ReviewAsync(task.Description, diff, ct);
+            var verdict = await critic.ReviewAsync(task.Description, diff, missionId, ct);
             if (!verdict.Approved)
             {
                 await FailAsync(task.Id, squadId, verdict.BlockingFindings, null, null, [verdict.Notes ?? ""], ct);

@@ -121,7 +121,7 @@ public sealed class MissionStartService(
         MissionPlan plan;
         try
         {
-            plan = await planner.PlanAsync(parsed.Spec, ct);
+            plan = await planner.PlanAsync(parsed.Spec, mission.Id, ct);
         }
         catch (Exception ex)
         {

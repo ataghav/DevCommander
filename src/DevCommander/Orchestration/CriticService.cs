@@ -1,3 +1,4 @@
+using DevCommander.Services;
 using Microsoft.Extensions.DependencyInjection;
 using NovaCore.Agents;
 
@@ -7,13 +8,14 @@ public sealed record CriticVerdict(bool Approved, IReadOnlyList<string> Blocking
 
 public interface ICriticService
 {
-    Task<CriticVerdict> ReviewAsync(string taskDescription, string diff, CancellationToken ct);
+    Task<CriticVerdict> ReviewAsync(string taskDescription, string diff, Guid? missionId, CancellationToken ct);
 }
 
 public sealed class CriticService(
-    [FromKeyedServices("critic")] IAgentFactory criticFactory) : ICriticService
+    [FromKeyedServices("critic")] IAgentFactory criticFactory,
+    IAgentCostTracker costs) : ICriticService
 {
-    public async Task<CriticVerdict> ReviewAsync(string taskDescription, string diff, CancellationToken ct)
+    public async Task<CriticVerdict> ReviewAsync(string taskDescription, string diff, Guid? missionId, CancellationToken ct)
     {
         var prompt = $"""
             Review only this current-task diff. Approve only when it fulfills the task without blocking defects.
@@ -22,6 +24,7 @@ public sealed class CriticService(
             {diff}
             """;
         var outcome = await criticFactory.Create().RunStructuredAsync<CriticVerdict>(AgentRunRequest.From(prompt), ct);
+        await costs.RecordFromOutcomeAsync("critic", outcome, missionId, ct);
         var verdict = outcome switch
         {
             ExecutionOutcome<CriticVerdict>.Completed { Value: not null } completed => completed.Value,

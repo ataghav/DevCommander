@@ -161,7 +161,13 @@ public sealed class StatusTests
             await db.SaveChangesAsync();
         }
 
-        var commands = new MissionCommands(host.DbFactory, new ThrowingMissionStart(), new ThrowingApproval(), new ThrowingRuntimeRegistry(), new ThrowingCoordinator());
+        var commands = new MissionCommands(
+            host.DbFactory,
+            new ThrowingMissionStart(),
+            new ThrowingApproval(),
+            new ThrowingRuntimeRegistry(),
+            new ThrowingCoordinator(),
+            new AgentCostTracker(host.DbFactory, TimeProvider.System, NullLogger<AgentCostTracker>.Instance));
         var result = await commands.StatusAsync("release", 42, default);
 
         Assert.Equal("release: Running\napi: Running", result);

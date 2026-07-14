@@ -281,3 +281,30 @@ public sealed class AppSetting
 
     public string Value { get; set; } = "";
 }
+
+/// <summary>Durable cost ledger for NovaCore agents and coding CLI runs.</summary>
+public sealed class AgentCostEntry
+{
+    public Guid Id { get; set; }
+
+    [Required]
+    [MaxLength(32)]
+    public string AgentRole { get; set; } = "";
+
+    public Guid? MissionId { get; set; }
+
+    public decimal TotalCostUsd { get; set; }
+
+    public decimal LlmCostUsd { get; set; }
+
+    public int InputTokens { get; set; }
+
+    public int OutputTokens { get; set; }
+
+    public int TotalTokens { get; set; }
+
+    /// <summary>True for coding-CLI best-effort estimates (and any non-authoritative report).</summary>
+    public bool IsEstimated { get; set; }
+
+    public DateTimeOffset At { get; set; }
+}

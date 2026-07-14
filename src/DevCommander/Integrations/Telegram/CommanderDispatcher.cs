@@ -1,5 +1,6 @@
 using DevCommander.Orchestration;
 using DevCommander.Options;
+using DevCommander.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NovaCore.Agents;
@@ -9,6 +10,7 @@ namespace DevCommander.Integrations.Telegram;
 public sealed class CommanderDispatcher(
     IMissionCommands commands,
     [FromKeyedServices("commander")] IAgentFactory commanderFactory,
+    IAgentCostTracker costs,
     ITelegramMessenger messenger,
     IOptions<TelegramOptions> options,
     ILogger<CommanderDispatcher> logger)
@@ -44,6 +46,7 @@ public sealed class CommanderDispatcher(
         return command switch
         {
             "/missions" when parts.Length == 1 => await commands.ListMissionsAsync(chatId, ct),
+            "/costs" when parts.Length == 1 => await commands.AgentCostsAsync(ct),
             "/start" when parts.Length == 2 => await commands.StartAsync(parts[1], chatId, ct),
             "/status" when parts.Length == 2 => await commands.StatusAsync(parts[1], chatId, ct),
             "/approve" when parts.Length == 2 && Guid.TryParse(parts[1], out var approvalId)
@@ -71,7 +74,18 @@ public sealed class CommanderDispatcher(
                 new Dictionary<string, object?>()),
         };
         var agent = await commanderFactory.OpenAsync(session, spec, ct);
-        var result = await agent.RunAsync(text, ct);
-        return result.ToString() ?? "Commander completed without a response.";
+        var outcome = await agent.RunAsync(text, ct);
+        await costs.RecordFromOutcomeAsync("commander", outcome, missionId: null, ct);
+        return outcome switch
+        {
+            ExecutionOutcome<string>.Completed { Value: { Length: > 0 } value } => value,
+            ExecutionOutcome<string>.Completed => "Commander completed without a response.",
+            ExecutionOutcome<string>.Failed failed =>
+                $"Commander failed: {failed.Error.Message}",
+            ExecutionOutcome<string>.Exhausted exhausted =>
+                $"Commander exhausted: {exhausted.Reason}",
+            ExecutionOutcome<string>.Cancelled => "Commander was cancelled.",
+            _ => "Commander completed without a response."
+        };
     }
 }

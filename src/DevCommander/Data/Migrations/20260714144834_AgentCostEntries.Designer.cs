@@ -3,6 +3,7 @@ using System;
 using DevCommander.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DevCommander.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714144834_AgentCostEntries")]
+    partial class AgentCostEntries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
@@ -32,9 +35,6 @@ namespace DevCommander.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("InputTokens")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsEstimated")
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal>("LlmCostUsd")

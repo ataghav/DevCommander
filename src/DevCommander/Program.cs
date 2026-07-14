@@ -81,6 +81,7 @@ builder.Services.AddSingleton<IVerifierService, VerifierService>();
 builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IStateTransitionService, StateTransitionService>();
 builder.Services.AddSingleton<ICostAccountingService, CostAccountingService>();
+builder.Services.AddSingleton<IAgentCostTracker, AgentCostTracker>();
 builder.Services.AddSingleton<INotificationOutbox, NotificationOutbox>();
 builder.Services.AddSingleton<ISquadLoop, SquadLoop>();
 builder.Services.AddSingleton<IMissionRuntimeRegistry, MissionRuntimeRegistry>();

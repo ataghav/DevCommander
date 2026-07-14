@@ -1,6 +1,7 @@
 using DevCommander.Data;
 using DevCommander.Domain;
 using DevCommander.Missions;
+using DevCommander.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace DevCommander.Orchestration;
@@ -10,7 +11,8 @@ public sealed class MissionCommands(
     IMissionStartService missionStart,
     IApprovalService approvals,
     IMissionRuntimeRegistry runtimeRegistry,
-    IMissionCoordinator coordinator) : IMissionCommands
+    IMissionCoordinator coordinator,
+    IAgentCostTracker agentCosts) : IMissionCommands
 {
     public async Task<string> ListMissionsAsync(long chatId, CancellationToken ct)
     {
@@ -107,6 +109,30 @@ public sealed class MissionCommands(
         }
 
         return ok ? $"Continuation scheduled for {repoId}." : $"Cannot continue {repoId}.";
+    }
+
+    public async Task<string> AgentCostsAsync(CancellationToken ct)
+    {
+        var report = await agentCosts.GetReportAsync(ct);
+        if (report.Lines.Count == 0)
+        {
+            return "No LLM costs recorded yet.";
+        }
+
+        var lines = report.Lines.Select(s =>
+        {
+            var tag = s.IsEstimated ? "best-effort" : "exact";
+            if (s.AgentRole.StartsWith("coder:", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{s.AgentRole}: runs={s.Runs} ${s.TotalCostUsd:F6} ({tag})";
+            }
+
+            return $"{s.AgentRole}: runs={s.Runs} ${s.TotalCostUsd:F6} llm=${s.LlmCostUsd:F6} in={s.InputTokens} out={s.OutputTokens} ({tag})";
+        });
+        return string.Join('\n', lines)
+               + $"\nhost LLM (commander/planner/critic): ${report.HostLlmExactUsd:F6}"
+               + $"\ncoding agents: ${report.CodingBestEffortUsd:F6} (best-effort where unmetered)"
+               + $"\ntotal: ${report.GrandTotalUsd:F6}";
     }
 
     private async Task<Guid?> FindMissionIdAsync(string slug, CancellationToken ct)

@@ -122,7 +122,7 @@ DevCommander uses the standard ASP.NET Core console logger. There is no separate
 | Local run | Watch the terminal that started `dotnet run` |
 | Docker | `docker logs -f <container>` |
 | Verbosity | Raise categories via config/env, e.g. `Logging__LogLevel__Default=Debug` or `Logging__LogLevel__DevCommander=Debug` |
-| What you will see | Startup (DataRoot, WAL mode), runtime/sandbox probe results, Telegram poll/inbox failures, notification delivery failures, git failures — structured `ILogger<T>` messages. Secrets and unbounded stdout/diffs are not logged. |
+| What you will see | Startup (DataRoot, WAL mode), runtime/sandbox probe results, Telegram poll/inbox failures, notification delivery failures, git failures, agent/coder cost ledger lines (`Agent cost recorded` / `Coder cost recorded`) — structured `ILogger<T>` messages. Secrets and unbounded stdout/diffs are not logged. |
 
 Notable events are also durable in SQLite (see debugging below); Telegram only gets completion / intervention notifications, not tool progress.
 
@@ -138,13 +138,14 @@ Useful tables:
 
 | Table | Use |
 |---|---|
-| `Missions` | Spec snapshot/hash, status, budget, accounted cost, deadline |
+| `Missions` | Spec snapshot/hash, status, budget, accounted cost (coder budget gate), deadline |
 | `Squads` | Per-repo worktree/branch, runtime, status, `LastPid`, `SessionId`, `LastCommittedSha` |
 | `Tasks` | Phase, description, attempts, `BaselineCommit`, `Evidence`, `LastErrorSignature`, `PhaseSummary` |
 | `SquadEvents` | Append-only squad action timeline (`Kind` + `Payload`) — primary debug trail for squad activity |
 | `ApprovalRequests` | Gated-command state machine (`Pending` → `Approved` → `Executing` → `Consumed` / `Blocked`) |
 | `Notifications` | Outbox (pending/sent/errors) |
 | `TelegramUpdates` | Durable inbound updates |
+| `AgentCostEntries` | Unified LLM cost ledger: `commander` / `planner` / `critic` (exact) and `coder:*` (best-effort); see `/costs` |
 | `agent_sessions` / `agent_messages` | NovaCore supervisor (`commander`) conversation persistence only |
 
 Filesystem:
@@ -165,8 +166,15 @@ SELECT Status, AttemptCount, LastErrorSignature, substr(Evidence,1,200) FROM Tas
 SELECT At, Kind, substr(Payload,1,200) FROM SquadEvents ORDER BY At DESC LIMIT 50;
 SELECT State, Operation, Attempt, CommandIndex FROM ApprovalRequests;
 SELECT State, Severity, substr(Body,1,200), LastError FROM Notifications ORDER BY At DESC;
+SELECT AgentRole, COUNT(*) AS Runs,
+       SUM(TotalCostUsd) AS TotalUsd,
+       SUM(CASE WHEN IsEstimated THEN 1 ELSE 0 END) AS EstimatedRows
+  FROM AgentCostEntries
+ GROUP BY AgentRole
+ ORDER BY AgentRole;
 ```
 
+Telegram `/costs` is the operator-facing view of the same ledger (per-role lines + host LLM + coding agents + grand total).
 ## Security model
 
 - Telegram chats must be allowlisted (`AllowedChatIds`). Unknown chats are ignored except `/whoami`.
@@ -205,6 +213,7 @@ Runtime selection: repo-specific mission override → mission default → `Repo.
 | Command | Behavior |
 |---|---|
 | `/missions` | List missions from SQLite |
+| `/costs` | Full LLM cost breakdown: host agents (exact) + coding CLIs (best-effort) + total |
 | `/start {missionSlug}` | Validate, snapshot, plan, persist graph, start |
 | `/status {missionSlug}` | DB status only (no agent) |
 | `/approve {approvalId}` | Single-use gated-command approval |
@@ -217,9 +226,31 @@ Notifications are at-least-once via a durable outbox and are limited to completi
 
 ## Budget semantics
 
+Mission budget and the cost ledger are related but separate:
+
+**Mission budget gate (`Mission.AccountedCostUsd`)**
+
 - Before every coder run, DevCommander **reserves** the configured estimated charge. If the reservation would exceed remaining mission budget, the run does not start.
 - When the runtime reports authoritative cost, accounting **reconciles** to that value. Otherwise the estimate remains and is reported as **best-effort / estimated**.
 - Wall-time cancellation applies to in-flight work when the mission deadline is reached.
+- Host LLM (commander / planner / critic) spend does **not** reduce this budget today.
+
+**Unified LLM cost ledger (`AgentCostEntries`, Telegram `/costs`)**
+
+| Role | Source | Accuracy |
+|---|---|---|
+| `commander` | NovaCore `ExecutionReport` after each free-text turn | Exact |
+| `planner` | NovaCore `ExecutionReport` after planning | Exact |
+| `critic` | NovaCore `ExecutionReport` after each review | Exact |
+| `coder:Claude` / `Codex` / `Cursor` / `OpenCode` | Reported CLI cost, else reserved estimate | Best-effort when unmetered |
+
+`/costs` prints each role, then:
+
+- `host LLM (commander/planner/critic)` — sum of exact host-agent rows  
+- `coding agents` — sum of `coder:*` rows  
+- `total` — host + coding  
+
+See also [docs/architecture.md](docs/architecture.md) §6.
 
 ## Recovery
 

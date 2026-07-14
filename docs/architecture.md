@@ -1,6 +1,6 @@
 # DevCommander architecture
 
-This document describes the running process model, end-to-end workflow, modules, how they are wired, and the coder prompt.
+This document describes the running process model, end-to-end workflow, modules, how they are wired, the coder prompt, and the durable LLM cost ledger.
 
 ## 1. How many processes exist?
 
@@ -208,7 +208,7 @@ flowchart TB
 | `Sandbox` / `Process` | bubblewrap wrapper + process tree kill / bounded capture |
 | `Git` | Per-repo locked clone/worktree/diff/commit/push |
 | `Data` / `Domain` | EF entities, migrations, WAL initializer |
-| `Services` | Cost, state transitions, outbox, reconciliation, probes, repos |
+| `Services` | Mission budget (`ICostAccountingService`), unified LLM cost ledger (`IAgentCostTracker`), state transitions, outbox, reconciliation, probes, repos |
 | `Options` / `Workspace` | Config validation, `DataRoot` paths |
 
 ---
@@ -225,7 +225,7 @@ Everything is registered in [`Program.cs`](../src/DevCommander/Program.cs) as AS
 | Pricing | `IPricingSource` composite host + `BuiltIn` | Singleton |
 | Process / sandbox / git | `IProcessRunner`, `IWorkerSandbox`, `IGitWorkspaceService` | Singleton |
 | Runtimes | Four `IRuntimeAdapter` → `RuntimeRegistry` | Singleton |
-| Domain services | Mission start/planner/critic/verifier/approval/cost/coordinator/registry/commands | Singleton |
+| Domain services | Mission start/planner/critic/verifier/approval/budget cost/agent cost tracker/coordinator/registry/commands | Singleton |
 | NovaCore | `AddModelProfiles` + keyed `AddAgentFactory("commander"|"planner"|"critic")` | Singleton factories |
 | Hosted | DB init → probe → reconciliation → Telegram poll → inbox → outbox | Hosted service order |
 
@@ -267,6 +267,53 @@ Adapter-specific invocation (prompt as CLI argument / stdin per runtime): Claude
 | commander | `"You are DevCommander. Coordinate missions and repositories using capabilities. Never edit repository files."` |
 | planner | `"Produce a complete, valid MissionPlan only. Every listed repository needs at least one task."` |
 | critic | `"Review only the supplied current-task diff. Return an approval verdict with concrete blocking findings."` |
+
+---
+
+## 6. LLM cost ledger
+
+Two related systems:
+
+| System | Purpose |
+|---|---|
+| `ICostAccountingService` + `Mission.AccountedCostUsd` | **Budget gate** for coding CLI runs: reserve estimate before spawn, reconcile after |
+| `IAgentCostTracker` + `AgentCostEntries` | **Durable ledger** of all LLM spend for reporting (`/costs`) |
+
+### What is recorded
+
+| Role | When | Amount | Accuracy |
+|---|---|---|---|
+| `commander` | After each Telegram free-text supervisor turn | NovaCore `ExecutionReport.TotalCost` / `LlmCost` + tokens | Exact |
+| `planner` | After mission plan `RunStructuredAsync` | Same | Exact |
+| `critic` | After each critic review | Same | Exact |
+| `coder:{Runtime}` | After each coder attempt (post-reconcile) | Reported CLI cost if present, else reserved estimate | Best-effort when unmetered / estimated |
+
+`IsEstimated` is stored per row. Host agents are always `false`; coding rows are `true` when the runtime did not report an authoritative cost (or reported an estimated usage-derived figure).
+
+### `/costs` breakdown
+
+Deterministic Telegram command (no agent call). Example shape:
+
+```text
+commander: runs=3 $0.001234 llm=$0.001234 in=… out=… (exact)
+planner: runs=1 $0.002000 … (exact)
+critic: runs=2 $0.001500 … (exact)
+coder:Claude: runs=4 $2.000000 (best-effort)
+host LLM (commander/planner/critic): $0.004734
+coding agents: $2.000000 (best-effort where unmetered)
+total: $2.004734
+```
+
+Grand total = host LLM exact + coding ledger lines. Mission budget (`AccountedCostUsd`) is **not** increased by commander/planner/critic rows today; it still only tracks coder reservations for gating.
+
+### Wiring
+
+- [`AgentCostTracker`](../src/DevCommander/Services/AgentCostTracker.cs) — persist + `GetReportAsync`
+- [`CommanderDispatcher`](../src/DevCommander/Integrations/Telegram/CommanderDispatcher.cs) — records commander; `/costs` → `MissionCommands.AgentCostsAsync`
+- [`MissionPlanner`](../src/DevCommander/Missions/IMissionPlanner.cs) / [`CriticService`](../src/DevCommander/Orchestration/CriticService.cs) — record with `MissionId` when known
+- [`SquadLoop`](../src/DevCommander/Orchestration/SquadLoop.cs) — `RecordCoderAsync` after `ReconcileAsync`
+
+Telegram free-text replies send **only** the commander message text (not the full `ExecutionOutcome` / report dump).
 
 ---
 

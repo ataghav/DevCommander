@@ -15,6 +15,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<TelegramUpdate> TelegramUpdates => Set<TelegramUpdate>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
+    public DbSet<AgentCostEntry> AgentCostEntries => Set<AgentCostEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -120,6 +121,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             e.HasKey(x => x.Key);
             e.Property(x => x.Key).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<AgentCostEntry>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.AgentRole).HasMaxLength(32).IsRequired();
+            e.Property(x => x.TotalCostUsd).HasPrecision(18, 6);
+            e.Property(x => x.LlmCostUsd).HasPrecision(18, 6);
+            e.Property(x => x.IsEstimated);
+            e.HasIndex(x => new { x.AgentRole, x.At });
+            e.HasIndex(x => x.MissionId);
         });
     }
 }

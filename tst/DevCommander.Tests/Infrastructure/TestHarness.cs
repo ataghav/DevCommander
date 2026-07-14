@@ -99,7 +99,7 @@ public sealed class ScriptedMissionPlanner : IMissionPlanner
     public MissionPlan Plan { get; set; } = new([]);
     public int Calls { get; private set; }
 
-    public Task<MissionPlan> PlanAsync(MissionSpecDocument spec, CancellationToken ct)
+    public Task<MissionPlan> PlanAsync(MissionSpecDocument spec, Guid? missionId, CancellationToken ct)
     {
         Calls++;
         return Task.FromResult(Plan);

@@ -6,13 +6,15 @@ Personal autonomous-coding control plane. One human coordinates multi-repository
 
 Architecture (processes, workflow, modules, coder prompt): [docs/architecture.md](docs/architecture.md).
 
+**Hyper-Care Mode** (proposed exclusive ops mode — watch Grafana/Azure, go/no-go issues, fix through GitHub PR handover): [docs/hyper-care-srs.md](docs/hyper-care-srs.md). While Hyper-Care is active, DevCommander does not run normal missions.
+
 ## System requirements
 
 | Environment | Requirement |
 |---|---|
 | Production host | Linux (Docker). Unprivileged user namespaces enabled for bubblewrap (e.g. `sysctl kernel.unprivileged_userns_clone=1` on compatible kernels). |
 | Runtime | .NET 10 SDK/runtime; in Docker this is supplied by the image. |
-| Tools on the host/image | `git`, `bubblewrap` (`bwrap`), coding CLIs: `claude`, `codex`, Cursor `agent`, `opencode` (failed install/auth/sandbox probe marks that runtime unavailable — no unsandboxed fallback). |
+| Tools on the host/image | `git`, `bubblewrap` (`bwrap`), coding CLIs: `claude`, `codex`, Cursor `agent`, `opencode` (failed install/auth/sandbox probe marks that runtime unavailable — no unsandboxed fallback). Hyper-Care (when enabled) also needs host `gh`, Grafana API reachability, and optionally Azure `az` — see [docs/hyper-care-srs.md](docs/hyper-care-srs.md). |
 | Node | Required only where CLI installers need it (see `Dockerfile`). |
 | Secrets | Env vars named by `DevCommander:Agents:*:ApiKeyEnvVar` (API keys never stored in config/DB/logs). |
 | Telegram | Bot token + allowlisted chat IDs when `Telegram:Enabled=true`. |

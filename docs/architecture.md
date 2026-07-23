@@ -344,3 +344,65 @@ flowchart TB
   Host --> GitRemote
   CLIs --> FS
 ```
+
+---
+
+## 7. Hyper-Care Mode (design)
+
+**Status:** Specified in [hyper-care-srs.md](hyper-care-srs.md) (Proposed). Not implemented in the coding plane described in §§1–6.
+
+### Process mode
+
+The host runs in exactly one mode: **Normal** (mission coding plane above) or **HyperCare**. They never run concurrently in one process. Mode-switch automation is out of scope; the operator activates Hyper-Care only when Normal work is clear.
+
+### What Hyper-Care adds inside the same host
+
+| Piece | Kind | Role |
+|---|---|---|
+| `HyperCareCoordinator` | Deterministic hosted orchestration | Session lifecycle, issue queue, `maxConcurrency`, same-repo serialization, handover |
+| Hybrid watchers | Host services (non-LLM) | Grafana HTTP API + Azure `az` checks → imperative noise filter → candidates |
+| `triage` agent | NovaCore one-shot | False-positive check on bounded suspicious context only |
+| `investigate` agent | NovaCore one-shot | Root-cause brief + task text for a Go issue |
+| Fix track | Reuses Mission / SquadLoop / Critic / Verifier | Exactly one track per Go issue; no parallel workers on one issue |
+| Host `gh` | Host-only CLI | After push, `gh pr create`; no deploy |
+
+Secrets for Grafana, Azure, and `gh` stay on the host watcher/handover path. Sandboxed coding workers still get no cloud/`gh` credentials (parent BR-002 / BR-007).
+
+```mermaid
+flowchart TB
+  subgraph hostProc [Single host OS process - HyperCare mode]
+    HC[HyperCareCoordinator]
+    W[Hybrid watchers]
+    Triage[triage one-shot]
+    Inv[investigate one-shot]
+    Loop[SquadLoop reuse]
+    DB[(SQLite session issues queue)]
+  end
+  GF[Grafana HTTP API]
+  AZ[Azure az CLI]
+  GH[gh pr create]
+  TG[Telegram issue CTAs]
+
+  W --> GF
+  W --> AZ
+  W -->|candidates| Triage
+  Triage --> DB
+  DB --> TG
+  TG -->|go no-go| HC
+  HC --> Inv --> Loop
+  Loop --> GH
+```
+
+### Telegram CTAs
+
+Issue and session actions use slash commands (`/hc_on`, `/hc_off`, `/go`, `/nogo`, …) with CTAs that send those commands (highlighted commands in messages and/or reply-keyboard button text). See [Telegram Bot Features](https://core.telegram.org/bots/features) and FR-HC-030 in the Hyper-Care SRS. Do not overload parent `/start {missionSlug}` for Hyper-Care activation.
+
+### Observability
+
+Hyper-Care requires structured logs and durable events on every watcher/triage/issue/queue/fix/PR transition. The coding plane today is largely `ILogger`-only (no `ActivitySource` in tree); Hyper-Care must not ship mute.
+
+### Revision
+
+| Date | Change | Why |
+|---|---|---|
+| 2026-07-23 | Added §7 Hyper-Care Mode design | Link architecture to Hyper-Care SRS without rewriting the implemented coding plane |

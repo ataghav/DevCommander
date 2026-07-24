@@ -160,12 +160,35 @@ public sealed class ScriptedProcessRunner : IProcessRunner
 
 public sealed class RecordingTelegramMessenger : ITelegramMessenger
 {
+    private int _nextMessageId;
     public List<(long ChatId, string Text)> Sends { get; } = [];
+    public List<(long ChatId, int MessageId, string Text)> Cards { get; } = [];
+    public List<(long ChatId, int MessageId, string Text)> Edits { get; } = [];
+    public List<IReadOnlyList<(string Command, string Description)>> CommandMenus { get; } = [];
     public void Configure() { }
     public void Configure(ITelegramBotClient botClient) { }
     public Task SendTextAsync(long chatId, string text, CancellationToken ct, ParseMode? parseMode = null)
     {
         Sends.Add((chatId, text));
+        return Task.CompletedTask;
+    }
+
+    public Task<int?> SendCardAsync(long chatId, string text, CancellationToken ct, ParseMode? parseMode = null)
+    {
+        var id = ++_nextMessageId;
+        Cards.Add((chatId, id, text));
+        return Task.FromResult<int?>(id);
+    }
+
+    public Task EditMessageTextAsync(long chatId, int messageId, string text, CancellationToken ct, ParseMode? parseMode = null)
+    {
+        Edits.Add((chatId, messageId, text));
+        return Task.CompletedTask;
+    }
+
+    public Task SetMyCommandsAsync(IReadOnlyList<(string Command, string Description)> commands, CancellationToken ct)
+    {
+        CommandMenus.Add(commands);
         return Task.CompletedTask;
     }
 }

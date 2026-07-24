@@ -59,7 +59,7 @@ public sealed class MissionCoordinator(
             {
                 foreach (var squad in squadsAll.Where(s => !s.Pushed))
                 {
-                    await git.PushMissionBranchAsync(squad.RepoId, squad.WorktreePath, mission.Slug, ct);
+                    await git.PushBranchAsync(squad.RepoId, squad.WorktreePath, squad.Branch, ct);
                     squad.Pushed = true;
                     squad.Status = SquadStatus.Completed;
                     squad.Version++;

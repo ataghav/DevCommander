@@ -282,6 +282,161 @@ public sealed class AppSetting
     public string Value { get; set; } = "";
 }
 
+/// <summary>
+/// Exclusive Hyper-Care operating mode session. Process mode is derived:
+/// mode is HyperCare iff a session with Status Running or BudgetHalted exists (FR-HC-001).
+/// </summary>
+public sealed class HyperCareSession
+{
+    public Guid Id { get; set; }
+
+    public HyperCareSessionStatus Status { get; set; } = HyperCareSessionStatus.Running;
+
+    /// <summary>Raw config JSON snapshotted at activation; watchers always read this, never the file.</summary>
+    [Required]
+    public string ConfigSnapshot { get; set; } = "";
+
+    [Required]
+    [MaxLength(64)]
+    public string ConfigHash { get; set; } = "";
+
+    public int MaxConcurrency { get; set; }
+
+    public decimal BudgetUsd { get; set; }
+
+    public decimal AccountedCostUsd { get; set; }
+
+    public HyperCareSeverity DefaultSeverity { get; set; } = HyperCareSeverity.Medium;
+
+    public int DefaultPriority { get; set; }
+
+    public long ChatId { get; set; }
+
+    public DateTimeOffset StartedAt { get; set; }
+
+    public DateTimeOffset? StoppedAt { get; set; }
+
+    public int Version { get; set; } = 1;
+
+    public string ShortId => Id.ToString("N")[..8];
+}
+
+/// <summary>
+/// Session issue keyed by (SessionId, ServiceId, Signature) per BR-HC-002. The 1:1 fix track
+/// (BR-HC-004) is folded into this row (MissionId/Branch/PrUrl/LastError) instead of the SRS's
+/// separate HyperCareFixTrack table — §9 states data requirements, not table layout.
+/// </summary>
+public sealed class HyperCareIssue
+{
+    public Guid Id { get; set; }
+
+    public Guid SessionId { get; set; }
+
+    [Required]
+    [MaxLength(12)]
+    public string ShortId { get; set; } = "";
+
+    [Required]
+    [MaxLength(128)]
+    public string ServiceId { get; set; } = "";
+
+    /// <summary>Triage-normalized signature; same fault → same signature.</summary>
+    [Required]
+    [MaxLength(256)]
+    public string Signature { get; set; } = "";
+
+    /// <summary>Denormalized from session config for per-repo track serialization (BR-HC-006).</summary>
+    [Required]
+    [MaxLength(128)]
+    public string RepoId { get; set; } = "";
+
+    [Required]
+    public string Summary { get; set; } = "";
+
+    public HyperCareSeverity Severity { get; set; }
+
+    public int Priority { get; set; }
+
+    public int OccurrenceCount { get; set; }
+
+    public HyperCareIssueStatus Status { get; set; } = HyperCareIssueStatus.AwaitingDecision;
+
+    public DateTimeOffset FirstSeenAt { get; set; }
+
+    public DateTimeOffset LastSeenAt { get; set; }
+
+    /// <summary>Redacted sample snippets and key attributes (bounded).</summary>
+    public string AttributesJson { get; set; } = "{}";
+
+    /// <summary>Telegram message id of the decision card, for later edits (FR-HC-021).</summary>
+    public int? TelegramMessageId { get; set; }
+
+    /// <summary>Occurrence count at last card send/edit; drives the edit-needed check.</summary>
+    public int CardOccurrenceCount { get; set; }
+
+    /// <summary>Status rendered on the last card send/edit; a mismatch re-renders (stale CTAs).</summary>
+    public HyperCareIssueStatus CardStatus { get; set; }
+
+    /// <summary>Last card send/edit/follow-up; NFR-HC-03 60s throttle.</summary>
+    public DateTimeOffset? LastCardTouchAt { get; set; }
+
+    public string? SuppressReason { get; set; }
+
+    /// <summary>Set by /hold: this issue runs next for its repo; cleared when it leaves Running.</summary>
+    public bool HoldPreferred { get; set; }
+
+    public Guid? MissionId { get; set; }
+
+    [MaxLength(256)]
+    public string? Branch { get; set; }
+
+    [MaxLength(1024)]
+    public string? PrUrl { get; set; }
+
+    public string? LastError { get; set; }
+
+    public int Version { get; set; } = 1;
+}
+
+/// <summary>Append-only Hyper-Care debug trail (FR-HC-050).</summary>
+public sealed class HyperCareEvent
+{
+    public Guid Id { get; set; }
+
+    public Guid SessionId { get; set; }
+
+    public Guid? IssueId { get; set; }
+
+    [Required]
+    [MaxLength(64)]
+    public string Kind { get; set; } = "";
+
+    public string Payload { get; set; } = "";
+
+    public DateTimeOffset At { get; set; }
+}
+
+/// <summary>
+/// Last-known source health per watched service, upserted every watcher cycle so /hc_status answers
+/// from the DB alone and survives restarts (FR-HC-032).
+/// </summary>
+public sealed class HyperCareSourceHealth
+{
+    public Guid Id { get; set; }
+
+    public Guid SessionId { get; set; }
+
+    [Required]
+    [MaxLength(128)]
+    public string ServiceId { get; set; } = "";
+
+    public DateTimeOffset? LastSuccessAt { get; set; }
+
+    public DateTimeOffset? LastErrorAt { get; set; }
+
+    public string? LastError { get; set; }
+}
+
 /// <summary>Durable cost ledger for NovaCore agents and coding CLI runs.</summary>
 public sealed class AgentCostEntry
 {

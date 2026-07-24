@@ -11,6 +11,8 @@ public interface IRuntimePaths
     string ReposDir { get; }
     string WorktreesDir { get; }
     string RuntimeStateDir { get; }
+    string HyperCareDir { get; }
+    string GetHyperCareConfigPath();
     string GetMissionSpecPath(string missionSlug);
     string GetWorktreePath(Guid missionId, string repoId);
     string GetSquadRuntimeHome(Guid missionId, string repoId);
@@ -33,6 +35,16 @@ public sealed class RuntimePaths(IOptions<DevCommanderOptions> options) : IRunti
 
     public string RuntimeStateDir => Path.Combine(DataRoot, "runtime-state");
 
+    public string HyperCareDir => Path.Combine(DataRoot, "hypercare");
+
+    /// <summary>Prefers hypercare/config.json; falls back to the SRS's extensionless hypercare/config.</summary>
+    public string GetHyperCareConfigPath()
+    {
+        var jsonPath = Path.Combine(HyperCareDir, "config.json");
+        var barePath = Path.Combine(HyperCareDir, "config");
+        return File.Exists(jsonPath) || !File.Exists(barePath) ? jsonPath : barePath;
+    }
+
     public string GetMissionSpecPath(string missionSlug) =>
         Path.Combine(MissionsDir, $"{missionSlug}.md");
 
@@ -49,5 +61,6 @@ public sealed class RuntimePaths(IOptions<DevCommanderOptions> options) : IRunti
         Directory.CreateDirectory(ReposDir);
         Directory.CreateDirectory(WorktreesDir);
         Directory.CreateDirectory(RuntimeStateDir);
+        Directory.CreateDirectory(HyperCareDir);
     }
 }

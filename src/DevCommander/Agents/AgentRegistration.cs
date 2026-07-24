@@ -13,7 +13,9 @@ public static class AgentRegistration
         services.AddModelProfiles(p => p
             .Add("commander", _ => Build(options.Agents.Commander))
             .Add("planner", _ => Build(options.Agents.Planner))
-            .Add("critic", _ => Build(options.Agents.Critic)));
+            .Add("critic", _ => Build(options.Agents.Critic))
+            .Add("triage", _ => Build(options.Agents.Triage))
+            .Add("investigate", _ => Build(options.Agents.Investigate)));
 
         services.AddAgentFactory("commander", f => f.Model("commander").Store().Defaults(new AgentSpec
         {
@@ -29,6 +31,16 @@ public static class AgentRegistration
         services.AddAgentFactory("critic", f => f.Model("critic").Defaults(new AgentSpec
         {
             Instructions = CriticInstructions.Text,
+            Loop = LoopPolicy.SingleResponse
+        }));
+        services.AddAgentFactory("triage", f => f.Model("triage").Defaults(new AgentSpec
+        {
+            Instructions = TriageInstructions.Text,
+            Loop = LoopPolicy.SingleResponse
+        }));
+        services.AddAgentFactory("investigate", f => f.Model("investigate").Defaults(new AgentSpec
+        {
+            Instructions = InvestigateInstructions.Text,
             Loop = LoopPolicy.SingleResponse
         }));
         services.AddSingleton<ICommanderCapability, RegisterRepositoryTool>();

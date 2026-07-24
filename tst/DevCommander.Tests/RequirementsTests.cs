@@ -167,7 +167,8 @@ public sealed class StatusTests
             new ThrowingApproval(),
             new ThrowingRuntimeRegistry(),
             new ThrowingCoordinator(),
-            new AgentCostTracker(host.DbFactory, TimeProvider.System, NullLogger<AgentCostTracker>.Instance));
+            new AgentCostTracker(host.DbFactory, TimeProvider.System, NullLogger<AgentCostTracker>.Instance),
+            new DevCommander.HyperCare.HyperCareSessionGate(host.DbFactory));
         var result = await commands.StatusAsync("release", 42, default);
 
         Assert.Equal("release: Running\napi: Running", result);

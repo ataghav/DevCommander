@@ -89,3 +89,31 @@ public enum FailureKind
     Cancelled = 5,
     Other = 6,
 }
+
+public enum HyperCareSessionStatus
+{
+    Running = 0,
+    BudgetHalted = 1,
+    Stopped = 2,
+}
+
+public enum HyperCareIssueStatus
+{
+    AwaitingDecision = 0,
+    Suppressed = 1,
+    Queued = 2,
+    Running = 3,
+    Held = 4,
+    HandedOver = 5,
+    Failed = 6,
+    Blocked = 7,
+}
+
+/// <summary>Ordered: comparisons rely on Low &lt; Medium &lt; High &lt; Critical.</summary>
+public enum HyperCareSeverity
+{
+    Low = 0,
+    Medium = 1,
+    High = 2,
+    Critical = 3,
+}

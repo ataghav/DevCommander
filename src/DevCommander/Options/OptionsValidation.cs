@@ -13,6 +13,8 @@ public sealed class DevCommanderOptionsValidator : IValidateOptions<DevCommander
         ValidateAgent("Commander", options.Agents.Commander, problems);
         ValidateAgent("Planner", options.Agents.Planner, problems);
         ValidateAgent("Critic", options.Agents.Critic, problems);
+        ValidateAgent("Triage", options.Agents.Triage, problems);
+        ValidateAgent("Investigate", options.Agents.Investigate, problems);
         foreach (var (runtimeName, executable, charge) in new[]
         {
             ("Claude", options.Runtimes.Claude.Executable, options.Runtimes.Claude.EstimatedChargeUsd),

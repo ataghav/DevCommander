@@ -6,7 +6,7 @@ Personal autonomous-coding control plane. One human coordinates multi-repository
 
 Architecture (processes, workflow, modules, coder prompt): [docs/architecture.md](docs/architecture.md).
 
-**Hyper-Care Mode** (proposed exclusive ops mode — watch Grafana/Azure, go/no-go issues, fix through GitHub PR handover): [docs/hyper-care-srs.md](docs/hyper-care-srs.md). While Hyper-Care is active, DevCommander does not run normal missions.
+**Hyper-Care Mode** (exclusive ops mode — Grafana/Azure watch, go/no-go, fix through GitHub PR): operator how-to [docs/hyper-care-operator-manual.md](docs/hyper-care-operator-manual.md) · requirements [docs/hyper-care-srs.md](docs/hyper-care-srs.md). While Hyper-Care is active, DevCommander does not run normal missions.
 
 ## System requirements
 
@@ -14,7 +14,7 @@ Architecture (processes, workflow, modules, coder prompt): [docs/architecture.md
 |---|---|
 | Production host | Linux (Docker). Unprivileged user namespaces enabled for bubblewrap (e.g. `sysctl kernel.unprivileged_userns_clone=1` on compatible kernels). |
 | Runtime | .NET 10 SDK/runtime; in Docker this is supplied by the image. |
-| Tools on the host/image | `git`, `bubblewrap` (`bwrap`), coding CLIs: `claude`, `codex`, Cursor `agent`, `opencode` (failed install/auth/sandbox probe marks that runtime unavailable — no unsandboxed fallback). Hyper-Care (when enabled) also needs host `gh`, Grafana API reachability, and optionally Azure `az` — see [docs/hyper-care-srs.md](docs/hyper-care-srs.md). |
+| Tools on the host/image | `git`, `bubblewrap` (`bwrap`), coding CLIs: `claude`, `codex`, Cursor `agent`, `opencode` (failed install/auth/sandbox probe marks that runtime unavailable — no unsandboxed fallback). Hyper-Care (when enabled) also needs host `gh`, Grafana API reachability, and optionally Azure `az` — see [docs/hyper-care-operator-manual.md](docs/hyper-care-operator-manual.md). |
 | Node | Required only where CLI installers need it (see `Dockerfile`). |
 | Secrets | Env vars named by `DevCommander:Agents:*:ApiKeyEnvVar` (API keys never stored in config/DB/logs). |
 | Telegram | Bot token + allowlisted chat IDs when `Telegram:Enabled=true`. |
@@ -124,7 +124,7 @@ DevCommander uses the standard ASP.NET Core console logger. There is no separate
 | Local run | Watch the terminal that started `dotnet run` |
 | Docker | `docker logs -f <container>` |
 | Verbosity | Raise categories via config/env, e.g. `Logging__LogLevel__Default=Debug` or `Logging__LogLevel__DevCommander=Debug` |
-| What you will see | Startup (DataRoot, WAL mode), runtime/sandbox probe results, Telegram poll/inbox failures, notification delivery failures, git failures, agent/coder cost ledger lines (`Agent cost recorded` / `Coder cost recorded`) — structured `ILogger<T>` messages. Secrets and unbounded stdout/diffs are not logged. |
+| What you will see | Startup (DataRoot, WAL mode), runtime/sandbox probe results, Telegram poll/inbox failures, notification delivery failures, git failures, Hyper-Care event lines, agent/coder cost ledger lines — structured `ILogger<T>` messages. Secrets and unbounded stdout/diffs are not logged. |
 
 Notable events are also durable in SQLite (see debugging below); Telegram only gets completion / intervention notifications, not tool progress.
 

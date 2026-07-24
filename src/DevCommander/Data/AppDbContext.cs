@@ -16,6 +16,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<TelegramUpdate> TelegramUpdates => Set<TelegramUpdate>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
     public DbSet<AgentCostEntry> AgentCostEntries => Set<AgentCostEntry>();
+    public DbSet<HyperCareSession> HyperCareSessions => Set<HyperCareSession>();
+    public DbSet<HyperCareIssue> HyperCareIssues => Set<HyperCareIssue>();
+    public DbSet<HyperCareEvent> HyperCareEvents => Set<HyperCareEvent>();
+    public DbSet<HyperCareSourceHealth> HyperCareSourceHealths => Set<HyperCareSourceHealth>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -132,6 +136,48 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.Property(x => x.IsEstimated);
             e.HasIndex(x => new { x.AgentRole, x.At });
             e.HasIndex(x => x.MissionId);
+        });
+
+        modelBuilder.Entity<HyperCareSession>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ConfigSnapshot).IsRequired();
+            e.Property(x => x.ConfigHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.BudgetUsd).HasPrecision(18, 6);
+            e.Property(x => x.AccountedCostUsd).HasPrecision(18, 6);
+            e.Property(x => x.Version).IsConcurrencyToken();
+            e.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<HyperCareIssue>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.SessionId, x.ServiceId, x.Signature }).IsUnique();
+            e.HasIndex(x => new { x.SessionId, x.ShortId }).IsUnique();
+            e.HasIndex(x => new { x.SessionId, x.Status });
+            e.Property(x => x.ShortId).HasMaxLength(12).IsRequired();
+            e.Property(x => x.ServiceId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.Signature).HasMaxLength(256).IsRequired();
+            e.Property(x => x.RepoId).HasMaxLength(128).IsRequired();
+            e.Property(x => x.Summary).IsRequired();
+            e.Property(x => x.AttributesJson).IsRequired();
+            e.Property(x => x.Branch).HasMaxLength(256);
+            e.Property(x => x.PrUrl).HasMaxLength(1024);
+            e.Property(x => x.Version).IsConcurrencyToken();
+        });
+
+        modelBuilder.Entity<HyperCareEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.SessionId, x.At });
+            e.Property(x => x.Kind).HasMaxLength(64).IsRequired();
+        });
+
+        modelBuilder.Entity<HyperCareSourceHealth>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.SessionId, x.ServiceId }).IsUnique();
+            e.Property(x => x.ServiceId).HasMaxLength(128).IsRequired();
         });
     }
 }

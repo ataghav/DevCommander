@@ -1,6 +1,8 @@
 using DevCommander.Agents;
 using DevCommander.Data;
 using DevCommander.Git;
+using DevCommander.HyperCare;
+using DevCommander.HyperCare.Watching;
 using DevCommander.Integrations.Telegram;
 using DevCommander.Missions;
 using DevCommander.Options;
@@ -39,7 +41,11 @@ builder.Services.AddSingleton<IPricingSource>(sp =>
     var opts = sp.GetRequiredService<IOptions<DevCommanderOptions>>().Value;
     var host = PricingSources.FromHost((providerId, modelId) =>
     {
-        foreach (var agent in new[] { opts.Agents.Commander, opts.Agents.Planner, opts.Agents.Critic })
+        foreach (var agent in new[]
+        {
+            opts.Agents.Commander, opts.Agents.Planner, opts.Agents.Critic,
+            opts.Agents.Triage, opts.Agents.Investigate,
+        })
         {
             if (string.Equals(agent.ProviderId, providerId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(agent.Model, modelId, StringComparison.OrdinalIgnoreCase)
@@ -53,7 +59,11 @@ builder.Services.AddSingleton<IPricingSource>(sp =>
         return null;
     });
     var pricing = PricingSources.Composite(host, PricingSources.BuiltIn);
-    foreach (var agent in new[] { opts.Agents.Commander, opts.Agents.Planner, opts.Agents.Critic })
+    foreach (var agent in new[]
+    {
+        opts.Agents.Commander, opts.Agents.Planner, opts.Agents.Critic,
+        opts.Agents.Triage, opts.Agents.Investigate,
+    })
     {
         if (pricing.Get(agent.ProviderId, agent.Model) is null)
         {
@@ -90,12 +100,28 @@ builder.Services.AddSingleton<IMissionCommands, MissionCommands>();
 builder.Services.AddSingleton<ITelegramMessenger, TelegramMessenger>();
 builder.Services.AddSingleton<CommanderDispatcher>();
 builder.Services.AddDevCommanderAgents(builder.Configuration);
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IGrafanaClient, GrafanaClient>();
+builder.Services.AddSingleton<IAzureCliRunner, AzureCliRunner>();
+builder.Services.AddSingleton<IGitHubCli, GitHubCli>();
+builder.Services.AddSingleton<IWatcherHealthRegistry, WatcherHealthRegistry>();
+builder.Services.AddSingleton<ServiceWatcherDeps>();
+builder.Services.AddSingleton<IHyperCareSessionGate, HyperCareSessionGate>();
+builder.Services.AddSingleton<IHyperCareEventLog, HyperCareEventLog>();
+builder.Services.AddSingleton<IHyperCareBudget, HyperCareBudget>();
+builder.Services.AddSingleton<IHyperCareIssueService, HyperCareIssueService>();
+builder.Services.AddSingleton<IHyperCareActivationValidator, HyperCareActivationValidator>();
+builder.Services.AddSingleton<ITriageService, TriageService>();
+builder.Services.AddSingleton<IInvestigateService, InvestigateService>();
+builder.Services.AddSingleton<IHyperCareFixTrackService, HyperCareFixTrackService>();
+builder.Services.AddSingleton<IHyperCareCommands, HyperCareCommands>();
 builder.Services.AddHostedService<DatabaseInitializerHostedService>();
 builder.Services.AddHostedService<RuntimeCapabilityProbeHostedService>();
 builder.Services.AddHostedService<StartupReconciliationService>();
 builder.Services.AddHostedService<TelegramPollingService>();
 builder.Services.AddHostedService<TelegramInboxProcessorService>();
 builder.Services.AddHostedService<NotificationFlusherService>();
+builder.Services.AddHostedService<HyperCareCoordinator>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();

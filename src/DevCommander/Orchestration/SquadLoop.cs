@@ -44,7 +44,7 @@ public sealed class SquadLoop(
             {
                 await git.EnsureCloneAsync(state.Repo.Id, state.Repo.Source, state.Repo.DefaultBranch, ct);
                 var worktree = await git.EnsureWorktreeAsync(
-                    state.Repo.Id, missionId, state.Mission.Slug, state.Squad.WorktreePath, state.Repo.DefaultBranch, ct);
+                    state.Repo.Id, missionId, state.Squad.Branch, state.Squad.WorktreePath, state.Repo.DefaultBranch, ct);
                 await using var init = await dbFactory.CreateDbContextAsync(ct);
                 var squad = await init.Squads.SingleAsync(x => x.Id == squadId, ct);
                 squad.WorktreePath = worktree.WorktreePath;

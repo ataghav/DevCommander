@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using DevCommander.HyperCare;
 using DevCommander.Orchestration;
 using DevCommander.Options;
 using DevCommander.Services;
@@ -8,14 +10,20 @@ using Telegram.Bot.Types.Enums;
 
 namespace DevCommander.Integrations.Telegram;
 
-public sealed class CommanderDispatcher(
+public sealed partial class CommanderDispatcher(
     IMissionCommands commands,
+    IHyperCareCommands hyperCare,
     [FromKeyedServices("commander")] IAgentFactory commanderFactory,
     IAgentCostTracker costs,
     ITelegramMessenger messenger,
     IOptions<TelegramOptions> options,
     ILogger<CommanderDispatcher> logger)
 {
+    // CTA forms like /go_ab12cd34 arrive as one tappable bot_command token (ADR-HC-006);
+    // rewrite them to the canonical "/go ab12cd34" before dispatch.
+    [GeneratedRegex(@"^/(go|nogo|hold|unhold)_([A-Za-z0-9]+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex UnderscoreCta();
+
     private readonly TelegramOptions _options = options.Value;
 
     public async Task DispatchAsync(long chatId, string payload, CancellationToken ct)
@@ -49,8 +57,15 @@ public sealed class CommanderDispatcher(
         }
     }
 
+    /// <summary>Rewrites tappable CTA tokens like /go_ab12cd34 to canonical "/go ab12cd34" (ADR-HC-006).</summary>
+    public static string NormalizeCta(string text) =>
+        UnderscoreCta().Match(text) is { Success: true } cta
+            ? $"/{cta.Groups[1].Value.ToLowerInvariant()} {cta.Groups[2].Value}"
+            : text;
+
     private async Task<string> DispatchAllowedAsync(long chatId, string text, CancellationToken ct)
     {
+        text = NormalizeCta(text);
         var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var command = parts.FirstOrDefault()?.ToLowerInvariant();
         return command switch
@@ -67,6 +82,16 @@ public sealed class CommanderDispatcher(
                 string.Join(" ", parts.Skip(3)),
                 chatId,
                 ct),
+            "/hc_on" when parts.Length == 1 => await hyperCare.ActivateAsync(chatId, ct),
+            "/hc_off" when parts.Length == 1 => await hyperCare.DeactivateAsync(chatId, ct),
+            "/hc_status" when parts.Length == 1 => await hyperCare.StatusAsync(ct),
+            "/go" when parts.Length is 2 or 3 => await hyperCare.GoAsync(
+                parts[1], parts.Length == 3 ? parts[2] : null, ct),
+            "/nogo" when parts.Length == 2 => await hyperCare.NoGoAsync(parts[1], ct),
+            "/severity" when parts.Length == 3 => await hyperCare.SetSeverityAsync(parts[1], parts[2], ct),
+            "/priority" when parts.Length == 3 => await hyperCare.SetPriorityAsync(parts[1], parts[2], ct),
+            "/hold" when parts.Length == 2 => await hyperCare.HoldAsync(parts[1], ct),
+            "/unhold" when parts.Length == 2 => await hyperCare.UnholdAsync(parts[1], ct),
             _ when text.StartsWith("/", StringComparison.Ordinal) => "Invalid command.",
             _ => await InvokeCommanderAsync(chatId, text, ct),
         };

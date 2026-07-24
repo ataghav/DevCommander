@@ -1,5 +1,6 @@
 using DevCommander.Data;
 using DevCommander.Domain;
+using DevCommander.HyperCare;
 using DevCommander.Integrations.Telegram;
 using DevCommander.Missions;
 using DevCommander.Services;
@@ -13,7 +14,8 @@ public sealed class MissionCommands(
     IApprovalService approvals,
     IMissionRuntimeRegistry runtimeRegistry,
     IMissionCoordinator coordinator,
-    IAgentCostTracker agentCosts) : IMissionCommands
+    IAgentCostTracker agentCosts,
+    IHyperCareSessionGate hyperCareGate) : IMissionCommands
 {
     public async Task<string> ListMissionsAsync(long chatId, CancellationToken ct)
     {
@@ -31,6 +33,12 @@ public sealed class MissionCommands(
 
     public async Task<string> StartAsync(string missionSlug, long chatId, CancellationToken ct)
     {
+        // FR-HC-001 / BR-HC-001: parent mission starts are refused while Hyper-Care is active.
+        if (await hyperCareGate.IsHyperCareActiveAsync(ct))
+        {
+            return "Hyper-Care mode is active; parent mission starts are disabled. Use /hc_off first.";
+        }
+
         var result = await missionStart.StartAsync(missionSlug, chatId, ct);
         if (!result.Succeeded)
         {
@@ -101,6 +109,26 @@ public sealed class MissionCommands(
         if (missionId is null)
         {
             return $"Mission '{missionSlug}' was not found.";
+        }
+
+        // BR-HC-001: while Hyper-Care is active, only its own fix-track missions may be continued —
+        // and a Held track must go through /unhold so the queue and same-repo rules stay in charge.
+        if (await hyperCareGate.IsHyperCareActiveAsync(ct))
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            var track = await db.HyperCareIssues.AsNoTracking()
+                .Where(i => i.MissionId == missionId)
+                .Select(i => new { i.ShortId, i.Status })
+                .FirstOrDefaultAsync(ct);
+            if (track is null)
+            {
+                return "Hyper-Care mode is active; only Hyper-Care fix-track missions can be continued. Use /hc_off first.";
+            }
+
+            if (track.Status == HyperCareIssueStatus.Held)
+            {
+                return $"Issue {track.ShortId} is Held; use /unhold {track.ShortId} so the scheduler resumes it.";
+            }
         }
 
         var ok = await runtimeRegistry.ContinueSquadAsync(missionId.Value, repoId, guidance, ct);

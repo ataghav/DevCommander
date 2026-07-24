@@ -326,13 +326,13 @@ file sealed class CompletingRuntimeRegistry(IDbContextFactory<AppDbContext> dbFa
 file sealed class NoopGit : IGitWorkspaceService
 {
     public Task EnsureCloneAsync(string repoId, string source, string defaultBranch, CancellationToken ct) => Task.CompletedTask;
-    public Task<WorktreeInfo> EnsureWorktreeAsync(string repoId, Guid missionId, string missionSlug, string worktreePath, string defaultBranch, CancellationToken ct) =>
-        Task.FromResult(new WorktreeInfo(worktreePath, $"mission/{repoId}/{missionSlug}", "abc"));
+    public Task<WorktreeInfo> EnsureWorktreeAsync(string repoId, Guid missionId, string branch, string worktreePath, string defaultBranch, CancellationToken ct) =>
+        Task.FromResult(new WorktreeInfo(worktreePath, branch, "abc"));
     public Task<string> GetHeadShaAsync(string worktreePath, CancellationToken ct) => Task.FromResult("abc");
     public Task<string> GetDiffAsync(string worktreePath, string baselineCommit, CancellationToken ct) => Task.FromResult("diff");
     public Task<bool> HasChangesAsync(string worktreePath, string baselineCommit, CancellationToken ct) => Task.FromResult(true);
     public Task<string> CommitAllAsync(string worktreePath, string message, CancellationToken ct) => Task.FromResult("abc");
-    public Task PushMissionBranchAsync(string repoId, string worktreePath, string missionSlug, CancellationToken ct) => Task.CompletedTask;
+    public Task PushBranchAsync(string repoId, string worktreePath, string branch, CancellationToken ct) => Task.CompletedTask;
     public Task RemoveWorktreeAsync(string repoId, string worktreePath, CancellationToken ct) => Task.CompletedTask;
 }
 

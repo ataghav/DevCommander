@@ -1,0 +1,64 @@
+{
+  // Hyper-Care session configuration — copy to {DataRoot}/hypercare/config.json before /hc_on.
+  // The file is snapshotted (raw + SHA-256) into the session at activation; later edits only
+  // affect the NEXT session. Comments and trailing commas are allowed.
+
+  "maxConcurrency": 2,            // max simultaneously Running fix tracks (>= 1)
+  "budgetUsd": 25.0,              // whole-session LLM budget; breach => BudgetHalted
+  "fixTrackBudgetUsd": 2.0,       // slice reserved per accepted issue; also the fix mission's budget
+  "triageEstimateUsd": 0.05,      // reservation per triage LLM call
+  "investigateEstimateUsd": 0.10, // reservation per investigate LLM call
+  "defaultSeverity": "medium",    // low | medium | high | critical (pre-filled on new issue cards)
+  "defaultPriority": 0,           // higher integer = sooner in queue
+  "pollIntervalSeconds": 60,      // per-service watcher cycle (>= 5)
+  "triageContextMaxChars": 32768, // hard cap on the excerpt sent to the triage LLM
+
+  // production=true makes redaction.patterns mandatory (activation fails without them).
+  // Patterns are applied to every ingested line BEFORE anything is persisted or sent to an LLM.
+  "production": false,
+  "redaction": {
+    "patterns": [
+      "(?i)bearer [a-z0-9._-]+",
+      "\\b\\d{16}\\b"
+    ]
+  },
+
+  "grafana": {
+    "baseUrl": "https://grafana.example.com/",
+    "tokenEnvVar": "HC_GRAFANA_TOKEN"   // name of the env var holding the token — never the token itself
+  },
+
+  "services": [
+    {
+      "id": "checkout-api",
+      "repoId": "checkout",             // exactly one registered repo per service (BR-HC-015)
+      "enabled": true,
+      "coderRuntime": "claude",         // optional; omit to use the repo's default runtime
+
+      // Each query is a raw Grafana HTTP request template. {fromMs}/{toMs} are replaced with the
+      // poll window (unix millis). Every string leaf of the JSON response becomes a candidate line.
+      "grafanaQueries": [
+        {
+          "name": "loki-errors",
+          "method": "POST",
+          "path": "api/ds/query",
+          "bodyTemplate": "{\"queries\":[{\"refId\":\"A\",\"datasource\":{\"uid\":\"loki\"},\"expr\":\"{app=\\\"checkout\\\"} |= `level=error`\",\"queryType\":\"range\"}],\"from\":\"{fromMs}\",\"to\":\"{toMs}\"}"
+        }
+      ],
+
+      // Host `az` CLI checks: a candidate is raised when the exit code is nonzero or the trimmed
+      // output does not match expectRegex.
+      "azureChecks": [
+        {
+          "name": "webapp-state",
+          "args": ["webapp", "show", "-g", "lab-rg", "-n", "checkout", "--query", "state", "-o", "tsv"],
+          "expectRegex": "^Running$"
+        }
+      ],
+
+      // Imperative pre-LLM filters (FR-HC-011): a line must match an include and no exclude.
+      "include": ["(?i)error|exception|timeout|5\\d\\d"],
+      "exclude": ["(?i)healthcheck|favicon"]
+    }
+  ]
+}

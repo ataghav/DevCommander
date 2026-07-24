@@ -35,6 +35,7 @@ public sealed class BubblewrapWorkerSandbox(
         "GIT_ASKPASS", "GIT_TERMINAL_PROMPT", "GH_TOKEN", "GITHUB_TOKEN",
         "GITLAB_TOKEN", "SSH_AUTH_SOCK", "SSH_AGENT_PID", "DEPLOY_TOKEN",
         "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID", "AZURE_CLIENT_SECRET",
+        "GH_CONFIG_DIR", "AZURE_CONFIG_DIR",
     ];
 
     private int _probed;
@@ -210,7 +211,9 @@ public sealed class BubblewrapWorkerSandbox(
 
         foreach (var (k, v) in extra)
         {
-            if (ForbiddenEnvKeys.Contains(k, StringComparer.OrdinalIgnoreCase))
+            // Grafana token env-var names are operator-chosen (Hyper-Care config), so match by substring.
+            if (ForbiddenEnvKeys.Contains(k, StringComparer.OrdinalIgnoreCase)
+                || k.Contains("GRAFANA", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

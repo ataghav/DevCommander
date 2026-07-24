@@ -66,7 +66,7 @@ public sealed class GitTests
             NullLogger<GitWorkspaceService>.Instance);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            git.PushMissionBranchAsync("repo", host.Data.Path, "main", default));
+            git.PushBranchAsync("repo", host.Data.Path, "main", default));
 
         Assert.Contains("main/master", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(host.ProcessRunner.Requests);
@@ -92,12 +92,12 @@ public sealed class GitTests
         var git = new GitWorkspaceService(new TestGitPaths(Path.Combine(root.Path, "clones")), runner,
             NullLogger<GitWorkspaceService>.Instance);
         await git.EnsureCloneAsync("repo", remote, "main", default);
-        var worktree = await git.EnsureWorktreeAsync("repo", Guid.NewGuid(), "release",
+        var worktree = await git.EnsureWorktreeAsync("repo", Guid.NewGuid(), "mission/repo/release",
             Path.Combine(root.Path, "worktree"), "main", default);
         await File.WriteAllTextAsync(Path.Combine(worktree.WorktreePath, "change.txt"), "change");
         await git.CommitAllAsync(worktree.WorktreePath, "change", default);
 
-        await git.PushMissionBranchAsync("repo", worktree.WorktreePath, "release", default);
+        await git.PushBranchAsync("repo", worktree.WorktreePath, "mission/repo/release", default);
 
         var references = await GitAsync(remote, "show-ref", "--verify", "refs/heads/mission/repo/release");
         Assert.NotEmpty(references);

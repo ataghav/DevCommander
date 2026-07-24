@@ -27,6 +27,8 @@ public sealed class AgentsOptions
     public OpenAiCompatibleProviderOptions Commander { get; set; } = new();
     public OpenAiCompatibleProviderOptions Planner { get; set; } = new();
     public OpenAiCompatibleProviderOptions Critic { get; set; } = new();
+    public OpenAiCompatibleProviderOptions Triage { get; set; } = new();
+    public OpenAiCompatibleProviderOptions Investigate { get; set; } = new();
 }
 
 public sealed class OpenAiCompatibleProviderOptions

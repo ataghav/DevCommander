@@ -14,7 +14,7 @@ public interface IGitWorkspaceService
     Task<WorktreeInfo> EnsureWorktreeAsync(
         string repoId,
         Guid missionId,
-        string missionSlug,
+        string branch,
         string worktreePath,
         string defaultBranch,
         CancellationToken ct);
@@ -22,7 +22,7 @@ public interface IGitWorkspaceService
     Task<string> GetDiffAsync(string worktreePath, string baselineCommit, CancellationToken ct);
     Task<bool> HasChangesAsync(string worktreePath, string baselineCommit, CancellationToken ct);
     Task<string> CommitAllAsync(string worktreePath, string message, CancellationToken ct);
-    Task PushMissionBranchAsync(string repoId, string worktreePath, string missionSlug, CancellationToken ct);
+    Task PushBranchAsync(string repoId, string worktreePath, string branch, CancellationToken ct);
     Task RemoveWorktreeAsync(string repoId, string worktreePath, CancellationToken ct);
 }
 
@@ -62,7 +62,7 @@ public sealed class GitWorkspaceService(
     public async Task<WorktreeInfo> EnsureWorktreeAsync(
         string repoId,
         Guid missionId,
-        string missionSlug,
+        string branch,
         string worktreePath,
         string defaultBranch,
         CancellationToken ct)
@@ -70,7 +70,6 @@ public sealed class GitWorkspaceService(
         return await withRepoLock(repoId, async () =>
         {
             var repoPath = paths.GetRepoClonePath(repoId);
-            var branch = $"mission/{repoId}/{missionSlug}";
 
             if (Directory.Exists(worktreePath))
             {
@@ -156,11 +155,10 @@ public sealed class GitWorkspaceService(
         return await GetHeadShaAsync(worktreePath, ct);
     }
 
-    public async Task PushMissionBranchAsync(string repoId, string worktreePath, string missionSlug, CancellationToken ct)
+    public async Task PushBranchAsync(string repoId, string worktreePath, string branch, CancellationToken ct)
     {
         await withRepoLock(repoId, async () =>
         {
-            var branch = $"mission/{repoId}/{missionSlug}";
             if (branch.EndsWith("/main", StringComparison.OrdinalIgnoreCase)
                 || branch.EndsWith("/master", StringComparison.OrdinalIgnoreCase)
                 || branch.Equals("main", StringComparison.OrdinalIgnoreCase)
